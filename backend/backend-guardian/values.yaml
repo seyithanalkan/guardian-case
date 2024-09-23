@@ -1,0 +1,38 @@
+replicaCount: 3
+serviceAccount:
+  name: backend-sa
+image:
+  repository: 544167776152.dkr.ecr.eu-north-1.amazonaws.com/backend-dev-ecr
+  tag: "c7d946bdd585aa88848fae56c2024aec72188bf3"
+  pullPolicy: Always
+
+service:
+  type: LoadBalancer  
+  port: 80
+  targetPort: 5000
+
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "200m"
+
+probes:
+  liveness:
+    path: /
+    initialDelaySeconds: 10
+    periodSeconds: 15
+  readiness:
+    path: /
+    initialDelaySeconds: 10
+    periodSeconds: 15
+
+hpa:
+  minReplicas: 2
+  maxReplicas: 5
+  cpu:
+    targetUtilization: 50
+  memory:
+    targetUtilization: 50

@@ -1,0 +1,42 @@
+# values.yaml
+
+image:
+  repository: 544167776152.dkr.ecr.eu-north-1.amazonaws.com/frontend-dev-ecr
+  tag: "f76e12f7fc2a20de2a70b0d1d00192b573fa6c9f"
+  pullPolicy: Always   # Ensures Kubernetes always pulls the latest image
+
+replicaCount: 1
+
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 80
+
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "250m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+probes:
+  liveness:
+    path: "/"
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  readiness:
+    path: "/"
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+hpa:
+  minReplicas: 1
+  maxReplicas: 5
+  cpu:
+    targetUtilization: 10
+  memory:
+    targetUtilization: 10
+
+ingress:
+  enabled: false

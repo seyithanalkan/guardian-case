@@ -1,0 +1,151 @@
+name: Guardian CI/CD Workflow
+
+on:
+  push:
+    paths:
+      - 'frontend/frontend-app/**'
+      - 'backend/backend-app/**'
+      - 'terraform/**'
+permissions:
+  contents: write 
+jobs: 
+  terraform:
+    name: Terraform Init and Apply
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, 'terraform')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.5.7
+
+      - name: Initialize Terraform
+        run: terraform init
+        working-directory: ./terraform/dev
+
+      - name: Apply Terraform changes
+        run: terraform apply -auto-approve
+        working-directory: ./terraform/dev
+
+  # Frontend Docker build and ECR push
+  frontend:
+    name: Build and Push Frontend Docker Image
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, 'frontend')
+    env:
+      ECR_REPOSITORY: frontend-dev-ecr
+      CLUSTER_NAME: "guardian-dev-cluster"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1
+
+      - name: Get Backend Service URL
+        id: get-backend-url
+        run: |
+          aws eks --region eu-north-1 update-kubeconfig --name ${{ env.CLUSTER_NAME }}
+          BACKEND_URL=$(kubectl get svc backend-backend-guardian -n backend -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          echo "REACT_APP_BACKEND_URL=http://$BACKEND_URL" >> $GITHUB_ENV
+
+      - name: Log in to AWS ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build Docker image for frontend
+        run: |
+          docker build -t frontend-app:latest ./frontend/frontend-app \
+            --build-arg REACT_APP_BACKEND_URL="${{ env.REACT_APP_BACKEND_URL }}"
+          docker tag frontend-app:latest ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+      - name: Replace the existing tag value with the new GitHub SHA
+        run: |
+          sed -i "s/tag: \".*\"/tag: \"$GITHUB_SHA\"/g" frontend/frontend-guardian/values.yaml
+
+      - name: Check file content after sed
+        run: |
+          echo "After sed operation:"
+          cat frontend/frontend-guardian/values.yaml
+      - name: Commit and push changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --local user.email "ci@example.com"
+          git config --local user.name "CI Bot"
+          git add frontend/frontend-guardian/values.yaml
+          git diff-index --quiet HEAD || git commit -m "Update frontend tag to ${{ github.sha }}" || echo "No changes to commit"
+          git push || echo "Nothing to push"
+
+  # Backend Docker build and ECR push
+  
+  backend:
+    name: Build and Push Backend Docker Image
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, 'backend')
+    env:
+      IMAGE_TAG: ${{ github.sha }}  # Ortam değişkeni olarak GitHub SHA kullanıyoruz
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1
+
+      - name: Log in to AWS ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build Docker image for backend
+        run: |
+          docker build -t backend-app:latest ./backend/backend-app
+          docker tag backend-app:latest ${{ steps.login-ecr.outputs.registry }}/backend-dev-ecr:${{ github.sha }}
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push ${{ steps.login-ecr.outputs.registry }}/backend-dev-ecr:${{ github.sha }}
+
+      - name: Replace the existing tag value with the new GitHub SHA
+        run: |
+          sed -i "s/tag: \".*\"/tag: \"$IMAGE_TAG\"/g" backend/backend-guardian/values.yaml
+
+      - name: Check file content after sed
+        run: |
+          echo "After sed operation:"
+          cat backend/backend-guardian/values.yaml
+
+      - name: Commit and push changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --local user.email "ci@example.com"
+          git config --local user.name "CI Bot"
+          git add backend/backend-guardian/values.yaml
+          git diff-index --quiet HEAD || git commit -m "Update backend tag to ${{ github.sha }}" || echo "No changes to commit"
+          git push || echo "Nothing to push"

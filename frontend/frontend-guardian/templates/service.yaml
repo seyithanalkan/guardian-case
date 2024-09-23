@@ -1,0 +1,13 @@
+# service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "frontend-guardian.fullname" . }}
+spec:
+  type: {{ .Values.service.type }}  # Dynamic type (LoadBalancer, ClusterIP, etc.)
+  ports:
+    - port: {{ .Values.service.port }}  # Dynamic port from values.yaml
+      targetPort: {{ .Values.service.targetPort }}  # Dynamic targetPort from values.yaml
+  selector:
+    app: {{ include "frontend-guardian.name" . }}

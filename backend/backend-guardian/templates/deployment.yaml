@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "backend-guardian.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}  # Number of replicas from values.yaml
+  selector:
+    matchLabels:
+      app: {{ include "backend-guardian.name" . }}  # Match label for deployment selector
+  template:
+    metadata:
+      labels:
+        app: {{ include "backend-guardian.name" . }}  # Label for app identification
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}  # Use the service account from values.yaml
+      containers:
+        - name: backend
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"  # Image and tag from values.yaml
+          imagePullPolicy: {{ .Values.image.pullPolicy }}  # Pull policy for the image
+          ports:
+            - containerPort: {{ .Values.service.targetPort }}  # Target port for the container
+          resources:  # Resource requests and limits for the container
+            requests:
+              memory: "{{ .Values.resources.requests.memory }}"
+              cpu: "{{ .Values.resources.requests.cpu }}"
+            limits:
+              memory: "{{ .Values.resources.limits.memory }}"
+              cpu: "{{ .Values.resources.limits.cpu }}"
+          livenessProbe:  # Liveness probe to ensure the application is alive
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}  # Path for the liveness probe
+              port: {{ .Values.service.targetPort }}  # Port for the liveness probe
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}  # Delay before the first check
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}  # Interval between checks
+          readinessProbe:  # Readiness probe to check if the application is ready to serve traffic
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}  # Path for the readiness probe
+              port: {{ .Values.service.targetPort }}  # Port for the readiness probe
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}  # Delay before the first check
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}  # Interval between checks
