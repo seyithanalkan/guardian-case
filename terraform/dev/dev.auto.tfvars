@@ -31,7 +31,7 @@ monitoring_role_arn        = "arn:aws:iam::533266956017:role/rds-monitoring-role
 
 ################### ARGOCD ####################
 repo_name = "helm-repo"
-repo_url  = "https://github.com/seyithanalkan/guardian-case-test.git"
+repo_url  = "https://github.com/seyithanalkan/guardian-case.git"
 
 
 argocd_namespace            = "argocd"
@@ -40,14 +40,14 @@ argocd_ingress_host         = "argocd.guardian.local"
 ARGOC_ADMIN_PASSWORD = ""
 ######## ARGOCD BACKEND APP #############
 backend_app_name = "backend"
-backend_repo_url = "https://github.com/seyithanalkan/guardian-case-test.git"
+backend_repo_url = "https://github.com/seyithanalkan/guardian-case.git"
 backend_target_revision = "master"  
 backend_namespace = "backend"
 backend_path      = "backend/backend-guardian"
 
 ######## ARGOCD FRONTEND APP #############
 frontend_app_name      = "frontend"
-frontend_repo_url      = "https://github.com/seyithanalkan/guardian-case-test.git"
+frontend_repo_url      = "https://github.com/seyithanalkan/guardian-case.git"
 frontend_target_revision = "master"
 frontend_namespace     = "frontend"
 frontend_path          = "frontend/frontend-guardian" 
